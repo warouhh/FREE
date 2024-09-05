@@ -1,0 +1,147 @@
+import subprocess
+import re
+import sys
+from flask import Flask, request, send_file
+
+app = Flask(__name__)
+
+@app.route("/backend")
+def backend():
+    return send_file("/usr/bin/ws-tunnel")
+
+@app.route("/cektr")
+def cektr():
+    x = subprocess.check_output("cat /etc/trojan/.trojan.db | grep '###' | cut -d ' ' -f 2 | nl", shell=True).decode("ascii")
+    return x
+
+@app.route("/cekvm")
+def cekvm():
+    x = subprocess.check_output("cat /etc/vmess/.vmess.db | grep '###' | cut -d ' ' -f 2 | nl", shell=True).decode("ascii")
+    return x
+
+@app.route("/ceksh")
+def ceksh():
+    x = subprocess.check_output("cat /etc/ssh/.ssh.db | grep '###' | cut -d ' ' -f 2 | nl", shell=True).decode("ascii")
+    return x
+
+@app.route("/renws")
+def renws():
+    num = request.args.get("num")
+    exp = request.args.get("exp")
+    quota = request.args.get("quota")
+    limitip = request.args.get("limitip")
+    cmd = f'printf "%s\n" "{num}" "{exp}" "{quota}" "{limitip}" | renew-ws'
+    x = subprocess.check_output(cmd, shell=True).decode("utf-8")
+    return x
+
+@app.route("/rentr")
+def rentr():
+    num = request.args.get("num")
+    exp = request.args.get("exp")
+    quota = request.args.get("quota")
+    limitip = request.args.get("limitip")
+    cmd = f'printf "%s\n" "{num}" "{exp}" "{quota}" "{limitip}" | renew-tr'
+    x = subprocess.check_output(cmd, shell=True).decode("utf-8")
+    return x
+
+@app.route("/rensh")
+def rensh():
+    num = request.args.get("num")
+    exp = request.args.get("exp")
+    cmd = f'printf "%s\n" "{num}" "{exp}"| renew-ssh'
+    x = subprocess.check_output(cmd, shell=True).decode("utf-8")
+    return x
+
+@app.route("/trial-ssh")
+def trial_ssh():
+    x = subprocess.check_output("printf '%s\n' '60' | trial-ssh", shell=True).decode("utf-8")
+    user = re.search("trial(.*)\n", x).group().replace('\n', "")
+    pw = re.search("Password         : (.*)\n", x).group()
+    pw = pw.split(": ")
+    return user + ":" + pw[1]
+
+@app.route("/trial-vmess")
+def trial_vmess():
+    x = subprocess.check_output("printf '%s\n' 'Trial`</dev/urandom tr -dc X-Z0-9 | head -c4`' '1' '1' '1' | addws", shell=True).decode("utf-8")
+    a = [x.group() for x in re.finditer("vmess://(.*)", x)]
+    return str(a)
+
+@app.route("/trial-trojan")
+def trial_trojan():
+    x = subprocess.check_output("printf '%s\n' 'trial`</dev/urandom tr -dc X-Z0-9 | head -c4`' '1' '2' '1' | addtr", shell=True).decode("utf-8")
+    a = [x.group() for x in re.finditer("trojan://(.*)", x)]
+    return str(a)
+
+@app.route("/create-vmess")
+def create_vmess():
+    user = request.args.get("user")
+    exp = request.args.get("exp")
+    quota = request.args.get("quota")
+    limitip = request.args.get("limitip")
+    cmd = f'printf "%s\n" "{user}" "{exp}" "{quota}" "{limitip}" | addws'
+    try:
+        x = subprocess.check_output(cmd, shell=True).decode("utf-8")
+        a = [x.group() for x in re.finditer("vmess://(.*)", x)]
+    except:
+        return "error"
+    else:
+        return str(a)
+
+@app.route("/adduser/exp")
+def add_user_exp():
+    u = request.args.get("user")
+    p = request.args.get("password")
+    exp = request.args.get("exp")
+    lim = request.args.get("limitip")
+    cmd = f"printf '%s\n' '{u}' '{p}' '{exp}' '{lim}' | add-ssh"
+    try:
+        x = subprocess.check_output(cmd, shell=True).decode("utf-8")
+    except:
+        return "error"
+    else:
+        return "success"
+
+@app.route("/trojan-create")
+def create_trojan():
+    user = request.args.get("user")
+    exp = request.args.get("exp")
+    ip = request.args.get("limitip")
+    cmd = f'printf "%s\n" "{user}" "{exp}" "100" "{ip}" | addtr'
+    try:
+        x = subprocess.check_output(cmd, shell=True).decode("utf-8")
+        a = [x.group() for x in re.finditer("trojan://(.*)", x)]
+    except:
+        return "error"
+    else:
+        return str(a)
+
+@app.route("/restart")
+def restart():
+    try:
+        subprocess.check_output("systemctl restart xray", shell=True)
+    except:
+        return "error"
+    else:
+        return "done"
+
+@app.route("/reboot")
+def reboot():
+    try:
+        subprocess.check_output("reboot", shell=True)
+    except:
+        return "error"
+    else:
+        return "done"
+
+@app.route("/kill")
+def kill():
+    try:
+        subprocess.check_output("init 0", shell=True)
+    except:
+        return "error"
+    else:
+        return "done"
+
+if __name__ == "__main__":
+    app.run(host=sys.argv[1], port=7788)
+
